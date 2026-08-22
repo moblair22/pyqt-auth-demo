@@ -1,1 +1,4 @@
-window.GOAL_APP_CONFIG = { supabaseUrl: "", supabaseAnonKey: "" };
+window.GOAL_APP_CONFIG = {
+  supabaseUrl: "",
+  supabasePublishableKey: ""
+};
