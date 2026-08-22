@@ -1,4 +1,4 @@
-// Contextual ? help for form fields across Goal Command Center.
+// Contextual ? help for form fields and reliable file-picker interactions.
 (() => {
   const helpById = {
     gTitle: 'Give the goal a clear outcome-focused name. Example: Save $20,000 or Run a 5K.',
@@ -65,13 +65,21 @@
       .trim();
   }
 
+  function closeAllHelp(except=null){
+    document.querySelectorAll('.field-help.help-open').forEach(el=>{
+      if(el!==except){el.classList.remove('help-open');el.setAttribute('aria-expanded','false');}
+    });
+  }
+
   function addHelp(label, text) {
     if (!label || !text || label.dataset.helpReady === '1') return;
     label.dataset.helpReady = '1';
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    const btn = document.createElement('span');
     btn.className = 'field-help';
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
     btn.setAttribute('aria-label', `Help: ${text}`);
+    btn.setAttribute('aria-expanded', 'false');
     btn.setAttribute('data-help', text);
     btn.textContent = '?';
     label.appendChild(btn);
@@ -87,7 +95,6 @@
       addHelp(label, idHelp || labelHelp);
     });
 
-    // Reading list row controls do not have visible labels, so add concise accessible explanations.
     root.querySelectorAll?.('.r-status').forEach(el => {
       el.title = 'Reading status: Want to read, Reading, or Finished.';
       el.setAttribute('aria-label', 'Reading status');
@@ -107,14 +114,47 @@
     style.id = 'fieldHelpStyle';
     style.textContent = `
       .field label{display:flex;align-items:center;gap:7px;position:relative;width:max-content;max-width:100%}
-      .field-help{width:19px;height:19px;min-width:19px;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:var(--accent2);display:inline-grid;place-items:center;padding:0;font-size:12px;font-weight:850;line-height:1;position:relative;z-index:2}
-      .field-help:hover,.field-help:focus-visible{border-color:var(--accent2);color:var(--text);outline:none}
+      .field-help{width:19px;height:19px;min-width:19px;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:var(--accent2);display:inline-grid;place-items:center;padding:0;font-size:12px;font-weight:850;line-height:1;position:relative;z-index:2;cursor:pointer;user-select:none}
+      .field-help:hover,.field-help:focus-visible,.field-help.help-open{border-color:var(--accent2);color:var(--text);outline:none}
       .field-help::after{content:attr(data-help);position:absolute;left:50%;top:calc(100% + 9px);transform:translateX(-50%);width:260px;max-width:min(260px,calc(100vw - 48px));padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#101d2e;color:var(--text);font-size:12px;font-weight:500;line-height:1.45;text-align:left;box-shadow:var(--shadow);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease;white-space:normal;z-index:60}
-      .field-help:hover::after,.field-help:focus::after,.field-help:focus-visible::after{opacity:1;visibility:visible}
+      .field-help:hover::after,.field-help:focus-visible::after,.field-help.help-open::after{opacity:1;visibility:visible}
       @media(max-width:650px){.field-help::after{left:0;transform:none;width:230px}}
     `;
     document.head.appendChild(style);
   }
+
+  document.addEventListener('click', e => {
+    const help = e.target?.closest?.('.field-help');
+    if (help) {
+      e.preventDefault();
+      e.stopPropagation();
+      const opening = !help.classList.contains('help-open');
+      closeAllHelp(help);
+      help.classList.toggle('help-open', opening);
+      help.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      return;
+    }
+    closeAllHelp();
+
+    const label = e.target?.closest?.('label');
+    const fileInput = label?.querySelector?.('input[type="file"]');
+    if (label && fileInput && e.target !== fileInput) {
+      e.preventDefault();
+      e.stopPropagation();
+      try { fileInput.click(); }
+      catch (err) { console.error('Could not open file picker', err); }
+    }
+  }, true);
+
+  document.addEventListener('keydown', e => {
+    const help = e.target?.closest?.('.field-help');
+    if (!help || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    const opening = !help.classList.contains('help-open');
+    closeAllHelp(help);
+    help.classList.toggle('help-open', opening);
+    help.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  });
 
   annotate();
   const observer = new MutationObserver(mutations => {
