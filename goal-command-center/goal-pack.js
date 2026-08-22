@@ -6,7 +6,7 @@
     card.id='goalPackImportCard';
     card.className='card settings-card';
     card.style.marginTop='18px';
-    card.innerHTML=`<div class="kicker">Goal updates</div><h2>Import goal update</h2><p>Merge an update into one of your existing goals without replacing your other goals, habits, tasks, or check-ins.</p><label class="secondary-btn">Choose goal update<input id="goalPackInput" type="file" accept="application/json" hidden></label>`;
+    card.innerHTML=`<div class="kicker">Goal updates</div><h2>Import goal update</h2><p>Merge one goal or a full goal pack into your account without replacing unrelated habits, tasks, check-ins, or reading data.</p><label class="secondary-btn">Choose goal update<input id="goalPackInput" type="file" accept="application/json" hidden></label>`;
     settings.appendChild(card);
     card.querySelector('#goalPackInput').onchange=e=>{
       const file=e.target.files?.[0];if(!file)return;
@@ -16,37 +16,61 @@
     };
   }
 
-  function normalizeSubgoal(s){
+  function normalizeSubgoal(s,existing){
+    const end=s.endDate||s.targetDate||'';
     return {
-      id:s.id||id(),
+      id:s.id||existing?.id||id(),
       title:String(s.title||''),
-      targetDate:s.targetDate||'',
-      done:!!s.done
+      startDate:s.startDate||'',
+      endDate:end,
+      targetDate:end,
+      done:typeof s.done==='boolean'?s.done:!!existing?.done
     };
   }
 
-  function applyPack(pack){
-    if(!pack||pack.type!=='goal-update'||!pack.goal)throw new Error('Invalid goal update');
-    const g=pack.goal;
+  function normalizeMilestone(m,existing){
+    return {id:m.id||existing?.id||id(),title:String(m.title||''),done:typeof m.done==='boolean'?m.done:!!existing?.done};
+  }
+
+  function applyGoal(g){
+    if(!g||!g.title)throw new Error('Invalid goal');
     const titles=new Set([g.title,...(g.matchTitles||[])].filter(Boolean));
     let existing=(state.goals||[]).find(x=>(g.seedKey&&x.seedKey===g.seedKey)||titles.has(x.title));
 
     if(!existing){
-      existing={id:id(),seedKey:g.seedKey||'',title:g.title||'New goal',category:g.category||'Personal',targetDate:g.targetDate||'',why:g.why||'',subgoals:[],milestones:[]};
+      existing={id:id(),seedKey:g.seedKey||'',title:g.title,category:g.category||'Personal',startDate:'',endDate:'',targetDate:'',why:'',subgoals:[],milestones:[]};
       state.goals.push(existing);
     }
 
     if(g.title)existing.title=g.title;
     if(g.category)existing.category=g.category;
-    if('targetDate' in g)existing.targetDate=g.targetDate||'';
+    if('startDate' in g)existing.startDate=g.startDate||'';
+    if('endDate' in g||'targetDate' in g){existing.endDate=g.endDate||g.targetDate||'';existing.targetDate=existing.endDate;}
     if('why' in g)existing.why=g.why||'';
     if(g.seedKey)existing.seedKey=g.seedKey;
-    if(Array.isArray(g.subgoals))existing.subgoals=g.subgoals.map(normalizeSubgoal);
-    if(Array.isArray(g.milestones))existing.milestones=g.milestones.map(m=>({id:m.id||id(),title:String(m.title||''),done:!!m.done}));
 
+    if(Array.isArray(g.subgoals)){
+      const old=Array.isArray(existing.subgoals)?existing.subgoals:[];
+      existing.subgoals=g.subgoals.map(s=>normalizeSubgoal(s,old.find(x=>x.title===s.title)));
+    }
+    if(Array.isArray(g.milestones)){
+      const old=Array.isArray(existing.milestones)?existing.milestones:[];
+      existing.milestones=g.milestones.map(m=>normalizeMilestone(m,old.find(x=>x.title===m.title)));
+    }
+    return existing;
+  }
+
+  function applyPack(pack){
+    if(!pack)throw new Error('Invalid goal update');
+    let goals=[];
+    if(pack.type==='goal-update'&&pack.goal)goals=[pack.goal];
+    else if(pack.type==='goal-batch-update'&&Array.isArray(pack.goals))goals=pack.goals;
+    else throw new Error('Invalid goal update');
+
+    goals.forEach(applyGoal);
     save();
     if(typeof pushCloud==='function'&&currentUser)pushCloud();
-    toast('Goal updated');
+    toast(goals.length===1?'Goal updated':`${goals.length} goals updated`);
     switchView('goals');
   }
 
