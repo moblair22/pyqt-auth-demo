@@ -14,6 +14,8 @@ create table if not exists public.daily_email_preferences (
 
 alter table public.daily_email_preferences enable row level security;
 
+grant select, insert, update, delete on table public.daily_email_preferences to authenticated;
+
 create policy "Users can read their own daily email preferences"
 on public.daily_email_preferences for select
 using (auth.uid() = user_id);
@@ -45,6 +47,8 @@ create table if not exists public.daily_email_log (
 );
 
 alter table public.daily_email_log enable row level security;
+
+grant select on table public.daily_email_log to authenticated;
 
 create policy "Users can read their own daily email history"
 on public.daily_email_log for select
