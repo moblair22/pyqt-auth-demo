@@ -30,7 +30,18 @@
     onboardingName: 'Optional name or nickname the app can use when personalizing your experience.',
     rbTitle: 'Enter the title of the book you want to track.',
     rbAuthor: 'Enter the book author so the title is easier to identify later.',
-    rbPages: 'Enter the total number of pages so the app can measure your reading progress.'
+    rbPages: 'Enter the total number of pages so the app can measure your reading progress.',
+    calTaskTitle: 'Enter the action you want scheduled on the calendar.',
+    calTaskGoal: 'Optionally connect this task to one of your main goals so you can see what the task supports.',
+    calStartDate: 'For a recurring task, this is the first date the repeating schedule can create an occurrence.',
+    calEndDate: 'For a recurring task, this is the last date the repeating schedule can create an occurrence.',
+    calEditTitle: 'Change the title of this individual task occurrence.',
+    calEditGoal: 'Change which goal this individual task occurrence supports.',
+    calEditDate: 'Move this individual task occurrence to another calendar day.',
+    calSeriesTitle: 'Change the task name for the entire recurring series.',
+    calSeriesGoal: 'Choose the goal supported by the entire recurring series.',
+    calSeriesStart: 'The first date included in this recurring task series.',
+    calSeriesEnd: 'The last date included in this recurring task series.'
   };
 
   const helpByLabel = {
@@ -43,6 +54,9 @@
     'Subgoal': 'A smaller measurable result that moves the main goal forward.',
     'Add milestone': 'A checkpoint that shows important progress has been made.',
     'Action': 'A concrete task you intend to complete today.',
+    'Task': 'A specific action scheduled for a particular day.',
+    'Link to goal': 'Connect the task to a main goal so the action has a clear purpose.',
+    'Repeat on': 'Choose the weekdays when a recurring task should appear between its start and end dates.',
     'Habit': 'A behavior you want to repeat consistently.',
     'What went well?': 'A short record of what worked or what you accomplished today.',
     'What needs attention?': 'Anything that needs improvement, correction, or follow-up.',
@@ -53,7 +67,8 @@
     'Your name or nickname (optional)': 'Optional name the app can use to personalize your experience.',
     'Title': 'The name of the item you are adding.',
     'Author': 'The author of the book.',
-    'Total pages': 'The full page count used to calculate reading progress.'
+    'Total pages': 'The full page count used to calculate reading progress.',
+    'Date': 'The calendar date assigned to this task occurrence.'
   };
 
   function cleanLabel(label) {
