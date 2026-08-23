@@ -9,6 +9,28 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
+  <script>
+    // One-time recovery from the unstable v25/v26 task-attention cache.
+    (() => {
+      const key = 'gcc-stability-recovery-v27';
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+      try {
+        if ('caches' in window) {
+          caches.keys().then(keys => Promise.all(
+            keys.filter(k => k.startsWith('goal-command-center-v')).map(k => caches.delete(k))
+          ));
+        }
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(regs =>
+            Promise.all(regs.map(r => r.unregister()))
+          );
+        }
+      } catch (err) {
+        console.warn('Recovery cleanup skipped', err);
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="app-shell">
@@ -70,6 +92,5 @@
   <script src="mobile-settings.js"></script>
   <script src="calendar.js"></script>
   <script src="theme-skins.js"></script>
-  <script src="task-attention-safe.js?v=stable-1"></script>
 </body>
 </html>
