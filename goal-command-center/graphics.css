@@ -1,0 +1,22 @@
+/* Decorative app graphics only. No app state, event handlers, observers, or render hooks. */
+#dashboardView .hero-main{position:relative;overflow:hidden;min-height:225px;padding-right:240px;background-image:linear-gradient(135deg,color-mix(in srgb,var(--panel2) 82%,transparent),color-mix(in srgb,var(--accent) 7%,var(--panel))),url('./assets/dashboard-goals.svg');background-repeat:no-repeat;background-position:0 0,right 50%;background-size:auto,220px auto}
+#dashboardView .hero-main>*{position:relative;z-index:1}
+#dashboardView .hero-main h2,#dashboardView .hero-main p{max-width:610px}
+
+#calendarView .cal-toolbar{position:relative;overflow:hidden;min-height:118px;padding:16px 145px 16px 16px;border:1px solid var(--line);border-radius:16px;background-image:linear-gradient(135deg,color-mix(in srgb,var(--panel2) 90%,transparent),color-mix(in srgb,var(--accent2) 7%,var(--panel))),url('./assets/calendar-planning.svg');background-repeat:no-repeat;background-position:0 0,right 50%;background-size:auto,128px auto}
+#calendarView .cal-toolbar>*{position:relative;z-index:1}
+
+#habitsView>.section-head:first-child{position:relative;overflow:hidden;min-height:132px;padding:18px 155px 18px 18px;border:1px solid var(--line);border-radius:16px;background-image:linear-gradient(135deg,color-mix(in srgb,var(--panel2) 90%,transparent),color-mix(in srgb,var(--accent) 7%,var(--panel))),url('./assets/habits-streaks.svg');background-repeat:no-repeat;background-position:0 0,right 50%;background-size:auto,140px auto}
+#habitsView>.section-head:first-child>*{position:relative;z-index:1}
+
+@media(max-width:850px){
+  #dashboardView .hero-main{min-height:190px;padding-right:165px;background-size:auto,150px auto}
+  #calendarView .cal-toolbar{padding-right:110px;background-size:auto,96px auto}
+  #habitsView>.section-head:first-child{padding-right:120px;background-size:auto,105px auto}
+}
+
+@media(max-width:560px){
+  #dashboardView .hero-main{min-height:205px;padding-right:18px;padding-bottom:112px;background-position:0 0,right 8px bottom 0;background-size:auto,118px auto}
+  #calendarView .cal-toolbar{min-height:150px;padding:14px 14px 82px;background-position:0 0,right 4px bottom -8px;background-size:auto,92px auto}
+  #habitsView>.section-head:first-child{min-height:165px;padding:14px 14px 92px;background-position:0 0,right 4px bottom -8px;background-size:auto,100px auto}
+}
