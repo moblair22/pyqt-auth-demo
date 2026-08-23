@@ -1,4 +1,4 @@
-const CACHE='goal-command-center-v22';
+const CACHE='goal-command-center-v23';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./edit-goals.js','./reading.js','./cloud-guard.js','./onboarding.js','./goal-pack.js','./goal-open-fix.js','./field-help.js','./mobile-settings.js','./calendar.js','./theme-skins.js','./task-alerts.js','./config.js','./manifest.json','./icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
