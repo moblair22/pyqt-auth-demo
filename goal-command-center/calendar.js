@@ -1,4 +1,4 @@
-// Calendar planning view: goal dates, task urgency, bills, one-time tasks, and recurring weekly tasks.
+// Calendar planning view: goal dates, task urgency, bills, one-time tasks, and recurring weekly, biweekly, and monthly tasks.
 (() => {
   let visibleMonth = (() => {
     const d = new Date();
@@ -43,6 +43,13 @@
     return dayKey(d.getFullYear(),d.getMonth(),d.getDate());
   }
 
+  function daysBetween(a,b) {
+    return Math.round((
+      Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) -
+      Date.UTC(a.getFullYear(),a.getMonth(),a.getDate())
+    ) / 86400000);
+  }
+
   function taskGoal(task) {
     return (state.goals || []).find(g => String(g.id) === String(task.goalId));
   }
@@ -51,18 +58,31 @@
     return (state.tasks || []).filter(t => String(t.seriesId || '') === String(seriesId || ''));
   }
 
+  function taskRecurrenceType(task) {
+    return ['weekly','biweekly','monthly'].includes(task?.recurrenceType) ? task.recurrenceType : 'weekly';
+  }
+
+  function recurrenceOptions(selected='weekly') {
+    return [
+      ['weekly','Weekly'],
+      ['biweekly','Biweekly'],
+      ['monthly','Monthly']
+    ].map(([value,label]) => `<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
+  }
+
   function seriesMeta(task) {
     const siblings = isRecurring(task) ? seriesTasks(task.seriesId) : [];
     const dates = siblings.map(t => t.date).filter(Boolean).sort();
     const start = task.recurrenceStart || dates[0] || task.date || todayKey();
     const end = task.recurrenceEnd || dates[dates.length-1] || task.date || start;
+    const type = taskRecurrenceType(task);
     let days = Array.isArray(task.recurrenceDays)
       ? task.recurrenceDays.map(Number).filter(n => n >= 0 && n <= 6)
       : [];
-    if (!days.length && siblings.length && task.recurrenceType === 'weekly') {
+    if (!days.length && siblings.length && (type === 'weekly' || type === 'biweekly')) {
       days = [...new Set(siblings.map(t => keyDate(t.date).getDay()))].sort((a,b) => a-b);
     }
-    return { start,end,days };
+    return { start,end,days,type };
   }
 
   function recurrenceText(task) {
@@ -70,8 +90,12 @@
     const meta = seriesMeta(task);
     if (task.recurrenceType === 'bill-monthly') return `Monthly bill · ${formatShort(meta.start)} → ${formatShort(meta.end)}`;
     if (task.recurrenceType === 'bill-weekly') return `Weekly bill · ${formatShort(meta.start)} → ${formatShort(meta.end)}`;
+    if (meta.type === 'monthly') {
+      return `Monthly · day ${keyDate(meta.start).getDate()} · ${formatShort(meta.start)} → ${formatShort(meta.end)}`;
+    }
     const names = meta.days.map(d => weekdayNames[d]).join(', ');
-    return `${names || 'Weekly'} · ${formatShort(meta.start)} → ${formatShort(meta.end)}`;
+    const label = meta.type === 'biweekly' ? 'Biweekly' : 'Weekly';
+    return `${label}${names ? ` · ${names}` : ''} · ${formatShort(meta.start)} → ${formatShort(meta.end)}`;
   }
 
   function urgencyForDate(key) {
@@ -197,16 +221,48 @@
     return [...document.querySelectorAll('.cal-repeat-day:checked')].map(el=>Number(el.value)).filter(n=>n>=0&&n<=6).sort((a,b)=>a-b);
   }
 
-  function makeSeriesOccurrences({seriesId,title,goalId,start,end,days,doneByDate={}}) {
+  function recurrenceHelp(type) {
+    if (type === 'biweekly') return 'Repeats every 2 weeks on the selected weekday(s), anchored to the start date.';
+    if (type === 'monthly') return 'Repeats monthly on the start-date day. Shorter months use their last day.';
+    return 'Repeats every week on the selected weekday(s).';
+  }
+
+  function bindFrequencyUI(selectId,weekdayBoxId,helpId) {
+    const select=document.querySelector(selectId),weekdayBox=document.querySelector(weekdayBoxId),help=document.querySelector(helpId);
+    if(!select||!weekdayBox||!help)return;
+    const sync=()=>{const type=select.value||'weekly';weekdayBox.classList.toggle('hidden',type==='monthly');help.textContent=recurrenceHelp(type);};
+    select.onchange=sync;
+    sync();
+  }
+
+  function makeSeriesOccurrences({seriesId,title,goalId,start,end,days=[],frequency='weekly',doneByDate={}}) {
     const startD = keyDate(start), endD = keyDate(end);
     if (Number.isNaN(startD.getTime()) || Number.isNaN(endD.getTime())) return [];
-    const rangeDays = Math.round((endD-startD)/86400000);
+    const rangeDays = daysBetween(startD,endD);
     if (rangeDays>730) {toast('Recurring task range can be up to 2 years');return [];}
-    const wanted = new Set(days.map(Number)), out=[];
+    if (rangeDays<0) return [];
+
+    const type=['weekly','biweekly','monthly'].includes(frequency)?frequency:'weekly';
+    const out=[];
+
+    if(type==='monthly'){
+      const anchorDay=startD.getDate();
+      for(let cursor=new Date(startD.getFullYear(),startD.getMonth(),1),guard=0;cursor<=endD&&guard<=25;cursor.setMonth(cursor.getMonth()+1),guard++){
+        const lastDay=new Date(cursor.getFullYear(),cursor.getMonth()+1,0).getDate();
+        const d=new Date(cursor.getFullYear(),cursor.getMonth(),Math.min(anchorDay,lastDay));
+        if(d<startD||d>endD)continue;
+        const date=dayKey(d.getFullYear(),d.getMonth(),d.getDate());
+        out.push({id:id(),seriesId,title,goalId:goalId||null,date,done:!!doneByDate[date],recurrenceType:'monthly',recurrenceStart:start,recurrenceEnd:end,recurrenceDays:[]});
+      }
+      return out;
+    }
+
+    const wanted = new Set(days.map(Number));
     for (let d=new Date(startD),guard=0;d<=endD&&guard<=732;d.setDate(d.getDate()+1),guard++) {
       if (!wanted.has(d.getDay())) continue;
+      if (type==='biweekly' && Math.floor(daysBetween(startD,d)/7)%2!==0) continue;
       const date = dayKey(d.getFullYear(),d.getMonth(),d.getDate());
-      out.push({id:id(),seriesId,title,goalId:goalId||null,date,done:!!doneByDate[date],recurrenceType:'weekly',recurrenceStart:start,recurrenceEnd:end,recurrenceDays:[...days]});
+      out.push({id:id(),seriesId,title,goalId:goalId||null,date,done:!!doneByDate[date],recurrenceType:type,recurrenceStart:start,recurrenceEnd:end,recurrenceDays:[...days]});
     }
     return out;
   }
@@ -235,10 +291,11 @@
     const urgency=urgencyForDate(key);
     const urgencyText=urgency?`<div class="cal-help-text"><strong>${urgency.count}</strong> unfinished ${urgency.kind==='overdue'?'past-due':urgency.kind==='today'?'due-today':'upcoming'} task${urgency.count===1?'':'s'} on this date.</div>`:'';
 
-    modal(`<div class="kicker">Calendar day</div><h2>${esc(formatLong(key))}</h2>${urgencyText}<div class="cal-section-title">Goals</div><div class="cal-day-list">${goalRowsForDay(key)}</div><div class="cal-section-title">Tasks & bills</div><div class="cal-day-list">${taskRowsForDay(tasks)}</div><div class="cal-section-title">Add a task</div><div class="field"><label>Task</label><input id="calTaskTitle" placeholder="What needs to get done?"></div><div class="field"><label>Link to goal</label><select id="calTaskGoal">${goalOptions()}</select></div><div class="cal-toggle-row"><label for="calRecurring">Recurring task</label><input id="calRecurring" type="checkbox"></div><div id="calRecurringFields" class="cal-recur-box hidden"><div class="form-grid"><div class="field"><label>Start date</label><input id="calStartDate" type="date" value="${key}"></div><div class="field"><label>End date</label><input id="calEndDate" type="date" value="${defaultEnd}"></div></div><div class="field"><label>Repeat on</label>${weekdayPicker([defaultWeekday])}</div><div class="cal-help-text">Pick one or more weekdays. Each occurrence is created as an individual dated task.</div></div><div class="modal-actions"><button type="button" class="secondary-btn close-modal">Close</button><button type="button" id="calAddTask" class="primary-btn">Add task</button></div>`);
+    modal(`<div class="kicker">Calendar day</div><h2>${esc(formatLong(key))}</h2>${urgencyText}<div class="cal-section-title">Goals</div><div class="cal-day-list">${goalRowsForDay(key)}</div><div class="cal-section-title">Tasks & bills</div><div class="cal-day-list">${taskRowsForDay(tasks)}</div><div class="cal-section-title">Add a task</div><div class="field"><label>Task</label><input id="calTaskTitle" placeholder="What needs to get done?"></div><div class="field"><label>Link to goal</label><select id="calTaskGoal">${goalOptions()}</select></div><div class="cal-toggle-row"><label for="calRecurring">Recurring task</label><input id="calRecurring" type="checkbox"></div><div id="calRecurringFields" class="cal-recur-box hidden"><div class="field"><label>Frequency</label><select id="calFrequency">${recurrenceOptions('weekly')}</select></div><div class="form-grid"><div class="field"><label>Start date</label><input id="calStartDate" type="date" value="${key}"></div><div class="field"><label>End date</label><input id="calEndDate" type="date" value="${defaultEnd}"></div></div><div id="calWeekdayFields" class="field"><label>Repeat on</label>${weekdayPicker([defaultWeekday])}</div><div id="calFrequencyHelp" class="cal-help-text"></div><div class="cal-help-text">Each occurrence is created as an individual dated task.</div></div><div class="modal-actions"><button type="button" class="secondary-btn close-modal">Close</button><button type="button" id="calAddTask" class="primary-btn">Add task</button></div>`);
 
     const recurring=document.querySelector('#calRecurring'),fields=document.querySelector('#calRecurringFields');
     recurring.onchange=()=>fields.classList.toggle('hidden',!recurring.checked);
+    bindFrequencyUI('#calFrequency','#calWeekdayFields','#calFrequencyHelp');
     document.querySelector('#calAddTask').onclick=()=>addTaskFromDay(key);
     document.querySelectorAll('.cal-task-check').forEach(box=>box.onchange=()=>{const task=(state.tasks||[]).find(t=>String(t.id)===String(box.dataset.id));if(!task)return;task.done=box.checked;save();openDay(key);});
     document.querySelectorAll('.cal-task-edit').forEach(btn=>btn.onclick=()=>{const task=(state.tasks||[]).find(t=>String(t.id)===String(btn.dataset.id));if(task)chooseEditScope(task,key);});
@@ -251,16 +308,23 @@
     if(!title)return toast('Enter a task');
     state.tasks=Array.isArray(state.tasks)?state.tasks:[];
     if(!recurring){state.tasks.unshift({id:id(),goalId,title,date:returnKey,done:false});save();openDay(returnKey);toast('Task added');return;}
-    const start=document.querySelector('#calStartDate')?.value||'',end=document.querySelector('#calEndDate')?.value||'',days=selectedWeekdays();
-    if(!start||!end)return toast('Choose a start and end date');if(end<start)return toast('End date must be on or after start date');if(!days.length)return toast('Choose at least one weekday');
-    const seriesId=id(),occurrences=makeSeriesOccurrences({seriesId,title,goalId,start,end,days});
-    if(!occurrences.length)return toast('No dates matched that recurring schedule');state.tasks.push(...occurrences);save();openDay(returnKey);toast(`${occurrences.length} recurring tasks added`);
+    const start=document.querySelector('#calStartDate')?.value||'',end=document.querySelector('#calEndDate')?.value||'',frequency=document.querySelector('#calFrequency')?.value||'weekly',days=frequency==='monthly'?[]:selectedWeekdays();
+    if(!start||!end)return toast('Choose a start and end date');
+    if(end<start)return toast('End date must be on or after start date');
+    if(frequency!=='monthly'&&!days.length)return toast('Choose at least one weekday');
+    const seriesId=id(),occurrences=makeSeriesOccurrences({seriesId,title,goalId,start,end,days,frequency});
+    if(!occurrences.length)return toast('No dates matched that recurring schedule');
+    state.tasks.push(...occurrences);
+    save();
+    openDay(returnKey);
+    toast(`${occurrences.length} recurring tasks added`);
   }
 
   function chooseDeleteScope(task,returnKey) {
     if(!isRecurring(task)){confirmDeleteOne(task,returnKey);return;}
     modal(`<div class="kicker">Delete recurring ${isBill(task)?'bill':'task'}</div><h2>What do you want to delete?</h2><p>${esc(task.title)}</p><div class="cal-help-text">${esc(formatLong(task.date))}</div><div class="cal-scope-actions"><button type="button" id="calDeleteOne" class="secondary-btn">This occurrence only</button><button type="button" id="calDeleteSeries" class="danger-btn">Entire series</button></div><div class="modal-actions"><button type="button" class="secondary-btn close-modal">Cancel</button></div>`);
-    document.querySelector('#calDeleteOne').onclick=()=>deleteOne(task,returnKey);document.querySelector('#calDeleteSeries').onclick=()=>deleteSeries(task,returnKey);
+    document.querySelector('#calDeleteOne').onclick=()=>deleteOne(task,returnKey);
+    document.querySelector('#calDeleteSeries').onclick=()=>deleteSeries(task,returnKey);
   }
 
   function confirmDeleteOne(task,returnKey) {
@@ -268,30 +332,90 @@
     document.querySelector('#calConfirmDeleteOne').onclick=()=>deleteOne(task,returnKey);
   }
 
-  function deleteOne(task,returnKey) {state.tasks=(state.tasks||[]).filter(t=>String(t.id)!==String(task.id));save();openDay(returnKey);toast(isRecurring(task)?'Occurrence deleted':'Task deleted');}
-  function deleteSeries(task,returnKey) {const sid=String(task.seriesId||'');state.tasks=(state.tasks||[]).filter(t=>String(t.seriesId||'')!==sid);save();openDay(returnKey);toast('Recurring series deleted');}
+  function deleteOne(task,returnKey) {
+    state.tasks=(state.tasks||[]).filter(t=>String(t.id)!==String(task.id));
+    save();
+    openDay(returnKey);
+    toast(isRecurring(task)?'Occurrence deleted':'Task deleted');
+  }
+
+  function deleteSeries(task,returnKey) {
+    const sid=String(task.seriesId||'');
+    state.tasks=(state.tasks||[]).filter(t=>String(t.seriesId||'')!==sid);
+    save();
+    openDay(returnKey);
+    toast('Recurring series deleted');
+  }
 
   function chooseEditScope(task,returnKey) {
     if(!isRecurring(task)){editOne(task,returnKey);return;}
     if(isBill(task)){editOne(task,returnKey);return;}
     modal(`<div class="kicker">Recurring task</div><h2>Edit recurring task</h2><p>${esc(task.title)}</p><div class="cal-scope-actions"><button type="button" id="calEditOne" class="secondary-btn">This occurrence only</button><button type="button" id="calEditSeries" class="primary-btn">Entire series</button></div><div class="modal-actions"><button type="button" class="secondary-btn close-modal">Cancel</button></div>`);
-    document.querySelector('#calEditOne').onclick=()=>editOne(task,returnKey);document.querySelector('#calEditSeries').onclick=()=>editSeries(task,returnKey);
+    document.querySelector('#calEditOne').onclick=()=>editOne(task,returnKey);
+    document.querySelector('#calEditSeries').onclick=()=>editSeries(task,returnKey);
   }
 
   function editOne(task,returnKey) {
     modal(`<div class="kicker">${isBill(task)?'Bill occurrence':'Task'}</div><h2>Edit ${isBill(task)?'this bill occurrence':'task'}</h2><div class="field"><label>Task</label><input id="calEditTitle" value="${esc(task.title)}"></div><div class="field"><label>Link to goal</label><select id="calEditGoal">${goalOptions(task.goalId)}</select></div><div class="field"><label>Date</label><input id="calEditDate" type="date" value="${esc(task.date)}"></div>${isRecurring(task)?'<div class="cal-help-text">Editing this occurrence detaches it from the recurring series.</div>':''}<div class="modal-actions"><button type="button" class="secondary-btn close-modal">Cancel</button><button type="button" id="calSaveOne" class="primary-btn">Save</button></div>`);
-    document.querySelector('#calSaveOne').onclick=()=>{const title=document.querySelector('#calEditTitle').value.trim(),date=document.querySelector('#calEditDate').value;if(!title)return toast('Enter a task');if(!date)return toast('Choose a date');task.title=title;task.goalId=document.querySelector('#calEditGoal').value||null;task.date=date;if(isRecurring(task)){delete task.seriesId;delete task.recurrenceType;delete task.recurrenceStart;delete task.recurrenceEnd;delete task.recurrenceDays;}save();openDay(returnKey);toast('Updated');};
+    document.querySelector('#calSaveOne').onclick=()=>{
+      const title=document.querySelector('#calEditTitle').value.trim(),date=document.querySelector('#calEditDate').value;
+      if(!title)return toast('Enter a task');
+      if(!date)return toast('Choose a date');
+      task.title=title;
+      task.goalId=document.querySelector('#calEditGoal').value||null;
+      task.date=date;
+      if(isRecurring(task)){
+        delete task.seriesId;
+        delete task.recurrenceType;
+        delete task.recurrenceStart;
+        delete task.recurrenceEnd;
+        delete task.recurrenceDays;
+      }
+      save();
+      openDay(returnKey);
+      toast('Updated');
+    };
   }
 
   function editSeries(task,returnKey) {
     const meta=seriesMeta(task);
-    modal(`<div class="kicker">Recurring series</div><h2>Edit entire series</h2><div class="field"><label>Task</label><input id="calSeriesTitle" value="${esc(task.title)}"></div><div class="field"><label>Link to goal</label><select id="calSeriesGoal">${goalOptions(task.goalId)}</select></div><div class="form-grid"><div class="field"><label>Start date</label><input id="calSeriesStart" type="date" value="${esc(meta.start)}"></div><div class="field"><label>End date</label><input id="calSeriesEnd" type="date" value="${esc(meta.end)}"></div></div><div class="field"><label>Repeat on</label>${weekdayPicker(meta.days)}</div><div class="cal-help-text">Completed dates that remain in the schedule stay completed.</div><div class="modal-actions"><button type="button" class="secondary-btn close-modal">Cancel</button><button type="button" id="calSaveSeries" class="primary-btn">Save series</button></div>`);
-    document.querySelector('#calSaveSeries').onclick=()=>{const title=document.querySelector('#calSeriesTitle').value.trim(),goalId=document.querySelector('#calSeriesGoal').value||null,start=document.querySelector('#calSeriesStart').value,end=document.querySelector('#calSeriesEnd').value,days=selectedWeekdays();if(!title)return toast('Enter a task');if(!start||!end)return toast('Choose a start and end date');if(end<start)return toast('End date must be on or after start date');if(!days.length)return toast('Choose at least one weekday');const old=seriesTasks(task.seriesId),doneByDate={};old.forEach(t=>{if(t.done)doneByDate[t.date]=true;});const replacements=makeSeriesOccurrences({seriesId:task.seriesId,title,goalId,start,end,days,doneByDate});if(!replacements.length)return toast('No dates matched that recurring schedule');const sid=String(task.seriesId);state.tasks=(state.tasks||[]).filter(t=>String(t.seriesId||'')!==sid);state.tasks.push(...replacements);save();openDay(returnKey);toast('Recurring series updated');};
+    modal(`<div class="kicker">Recurring series</div><h2>Edit entire series</h2><div class="field"><label>Task</label><input id="calSeriesTitle" value="${esc(task.title)}"></div><div class="field"><label>Link to goal</label><select id="calSeriesGoal">${goalOptions(task.goalId)}</select></div><div class="field"><label>Frequency</label><select id="calSeriesFrequency">${recurrenceOptions(meta.type)}</select></div><div class="form-grid"><div class="field"><label>Start date</label><input id="calSeriesStart" type="date" value="${esc(meta.start)}"></div><div class="field"><label>End date</label><input id="calSeriesEnd" type="date" value="${esc(meta.end)}"></div></div><div id="calSeriesWeekdayFields" class="field"><label>Repeat on</label>${weekdayPicker(meta.days)}</div><div id="calSeriesFrequencyHelp" class="cal-help-text"></div><div class="cal-help-text">Completed dates that remain in the schedule stay completed.</div><div class="modal-actions"><button type="button" class="secondary-btn close-modal">Cancel</button><button type="button" id="calSaveSeries" class="primary-btn">Save series</button></div>`);
+    bindFrequencyUI('#calSeriesFrequency','#calSeriesWeekdayFields','#calSeriesFrequencyHelp');
+    document.querySelector('#calSaveSeries').onclick=()=>{
+      const title=document.querySelector('#calSeriesTitle').value.trim(),
+        goalId=document.querySelector('#calSeriesGoal').value||null,
+        frequency=document.querySelector('#calSeriesFrequency').value||'weekly',
+        start=document.querySelector('#calSeriesStart').value,
+        end=document.querySelector('#calSeriesEnd').value,
+        days=frequency==='monthly'?[]:selectedWeekdays();
+      if(!title)return toast('Enter a task');
+      if(!start||!end)return toast('Choose a start and end date');
+      if(end<start)return toast('End date must be on or after start date');
+      if(frequency!=='monthly'&&!days.length)return toast('Choose at least one weekday');
+      const old=seriesTasks(task.seriesId),doneByDate={};
+      old.forEach(t=>{if(t.done)doneByDate[t.date]=true;});
+      const replacements=makeSeriesOccurrences({seriesId:task.seriesId,title,goalId,start,end,days,frequency,doneByDate});
+      if(!replacements.length)return toast('No dates matched that recurring schedule');
+      const sid=String(task.seriesId);
+      state.tasks=(state.tasks||[]).filter(t=>String(t.seriesId||'')!==sid);
+      state.tasks.push(...replacements);
+      save();
+      openDay(returnKey);
+      toast('Recurring series updated');
+    };
   }
 
   ensureCalendarUI();
   const baseSwitch=switchView;
-  switchView=function(viewName){baseSwitch(viewName);if(viewName==='calendar'){renderCalendar();const title=document.querySelector('#viewTitle');if(title)title.textContent='Calendar';document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view==='calendar'));}};
+  switchView=function(viewName){
+    baseSwitch(viewName);
+    if(viewName==='calendar'){
+      renderCalendar();
+      const title=document.querySelector('#viewTitle');
+      if(title)title.textContent='Calendar';
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view==='calendar'));
+    }
+  };
   const baseRender=render;
   render=function(){baseRender();ensureCalendarUI();renderCalendar();};
   renderCalendar();
