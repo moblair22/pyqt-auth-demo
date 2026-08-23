@@ -1,6 +1,6 @@
 // Task deadline attention system: overdue, due today, and due soon.
 (() => {
-  const SOON_DAYS = 7;
+  const SOON_DAYS = 3;
 
   function localKey(date = new Date()) {
     const y = date.getFullYear();
@@ -69,12 +69,29 @@
     </div>`;
   }
 
+  function attentionItems(groups) {
+    return [
+      ...groups.overdue.map(t => [t, 'overdue']),
+      ...groups.today.map(t => [t, 'today']),
+      ...groups.soon.map(t => [t, 'soon'])
+    ];
+  }
+
+  function summaryMarkup(groups) {
+    return `<div class="attention-summary">
+      <div class="attention-stat overdue"><strong>${groups.overdue.length}</strong><span>Overdue</span></div>
+      <div class="attention-stat today"><strong>${groups.today.length}</strong><span>Due today</span></div>
+      <div class="attention-stat soon"><strong>${groups.soon.length}</strong><span>Next 3 days</span></div>
+    </div>`;
+  }
+
   function ensureStyles() {
     if (document.querySelector('#taskAttentionStyles')) return;
     const style = document.createElement('style');
     style.id = 'taskAttentionStyles';
     style.textContent = `
       .task-attention{margin-top:28px}
+      .calendar-task-attention{margin:0 0 18px}
       .task-attention-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:12px}
       .task-attention-head h2{margin:0;font-size:18px}.task-attention-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
       .attention-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
@@ -95,6 +112,7 @@
   }
 
   function bindRows(root) {
+    if (!root) return;
     root.querySelectorAll('.attention-check').forEach(box => {
       box.onchange = () => {
         const task = (state.tasks || []).find(t => String(t.id) === String(box.dataset.id));
@@ -120,18 +138,10 @@
     if (!view) return;
     view.querySelector('#taskAttentionSection')?.remove();
     const groups = attentionData();
-    const items = [
-      ...groups.overdue.map(t => [t, 'overdue']),
-      ...groups.today.map(t => [t, 'today']),
-      ...groups.soon.map(t => [t, 'soon'])
-    ];
+    const items = attentionItems(groups);
     const html = `<section id="taskAttentionSection" class="task-attention">
-      <div class="task-attention-head"><div><h2>Task Attention</h2><p>Deadlines that need action now or within the next ${SOON_DAYS} days.</p></div></div>
-      <div class="attention-summary">
-        <div class="attention-stat overdue"><strong>${groups.overdue.length}</strong><span>Overdue</span></div>
-        <div class="attention-stat today"><strong>${groups.today.length}</strong><span>Due today</span></div>
-        <div class="attention-stat soon"><strong>${groups.soon.length}</strong><span>Due soon</span></div>
-      </div>
+      <div class="task-attention-head"><div><h2>Task Attention</h2><p>Deadlines that need action now or within the next 3 days.</p></div></div>
+      ${summaryMarkup(groups)}
       <div class="card"><div class="attention-list">${items.length ? items.map(([t,k]) => taskRow(t,k)).join('') : '<div class="attention-clear">Nothing urgent right now. You are caught up.</div>'}</div></div>
     </section>`;
     const metrics = view.querySelector('.grid.grid-4');
@@ -154,10 +164,27 @@
     bindRows(view.querySelector('#todayOverdueSection'));
   }
 
+  function injectCalendarAttention() {
+    const view = document.querySelector('#calendarView');
+    if (!view) return;
+    view.querySelector('#calendarTaskAttentionSection')?.remove();
+    const groups = attentionData();
+    const items = attentionItems(groups);
+    const html = `<section id="calendarTaskAttentionSection" class="calendar-task-attention">
+      <div class="task-attention-head"><div><h2>Task Attention</h2><p>Overdue, due today, and tasks due within the next 3 days.</p></div></div>
+      ${summaryMarkup(groups)}
+      <div class="card"><div class="attention-list">${items.length ? items.map(([t,k]) => taskRow(t,k)).join('') : '<div class="attention-clear">No urgent calendar tasks right now.</div>'}</div></div>
+    </section>`;
+    const calendar = view.querySelector('.cal-shell');
+    if (calendar) calendar.insertAdjacentHTML('beforebegin', html); else view.insertAdjacentHTML('afterbegin', html);
+    bindRows(view.querySelector('#calendarTaskAttentionSection'));
+  }
+
   function refreshAttention() {
     ensureStyles();
     injectDashboard();
     injectTodayOverdue();
+    injectCalendarAttention();
   }
 
   ensureStyles();
