@@ -91,7 +91,6 @@
     style.id = 'taskAttentionStyles';
     style.textContent = `
       .task-attention{margin-top:28px}
-      .calendar-task-attention{margin:0 0 18px}
       .task-attention-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:12px}
       .task-attention-head h2{margin:0;font-size:18px}.task-attention-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
       .attention-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
@@ -106,7 +105,21 @@
       .attention-delete{border:1px solid color-mix(in srgb,var(--danger) 50%,var(--line));background:transparent;color:var(--danger);border-radius:10px;padding:7px 9px;font-size:11px;font-weight:800}.attention-delete:hover{background:color-mix(in srgb,var(--danger) 10%,transparent)}
       .attention-clear{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
       .today-overdue{margin:18px 0 6px}.today-overdue .task-attention-head{margin-bottom:10px}
-      @media(max-width:650px){.attention-summary{grid-template-columns:repeat(3,1fr);gap:6px}.attention-stat{padding:10px 8px}.attention-stat strong{font-size:20px}.attention-stat span{font-size:8px}.attention-task{align-items:flex-start;flex-wrap:wrap}.attention-main{flex-basis:calc(100% - 34px)}.attention-badge{margin-left:29px}.attention-delete{margin-left:auto}.task-attention-head{align-items:flex-start}}
+
+      /* Calendar urgency is embedded directly into each date cell. */
+      .cal-day.task-overdue{border-color:color-mix(in srgb,var(--danger) 72%,var(--line));background:color-mix(in srgb,var(--danger) 12%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 28%,transparent)}
+      .cal-day.task-today{border-color:color-mix(in srgb,var(--accent) 72%,var(--line));background:color-mix(in srgb,var(--accent) 12%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent)}
+      .cal-day.task-soon{border-color:color-mix(in srgb,var(--accent2) 68%,var(--line));background:color-mix(in srgb,var(--accent2) 11%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent2) 25%,transparent)}
+      .cal-day.task-overdue .cal-num{color:var(--danger)}.cal-day.task-today .cal-num{color:var(--accent)}.cal-day.task-soon .cal-num{color:var(--accent2)}
+      .cal-attention-chip{display:inline-flex;align-items:center;gap:4px;width:max-content;max-width:100%;padding:3px 6px;border-radius:999px;font-size:9px;font-weight:850;line-height:1.1;margin-top:auto;white-space:nowrap}
+      .cal-attention-chip.overdue{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,var(--panel2))}
+      .cal-attention-chip.today{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+      .cal-attention-chip.soon{color:var(--accent2);background:color-mix(in srgb,var(--accent2) 14%,var(--panel2))}
+
+      @media(max-width:650px){
+        .attention-summary{grid-template-columns:repeat(3,1fr);gap:6px}.attention-stat{padding:10px 8px}.attention-stat strong{font-size:20px}.attention-stat span{font-size:8px}.attention-task{align-items:flex-start;flex-wrap:wrap}.attention-main{flex-basis:calc(100% - 34px)}.attention-badge{margin-left:29px}.attention-delete{margin-left:auto}.task-attention-head{align-items:flex-start}
+        .cal-attention-chip{font-size:7px;padding:2px 4px;margin-top:auto}.cal-day.task-overdue,.cal-day.task-today,.cal-day.task-soon{box-shadow:inset 0 0 0 1px currentColor}
+      }
     `;
     document.head.appendChild(style);
   }
@@ -164,27 +177,56 @@
     bindRows(view.querySelector('#todayOverdueSection'));
   }
 
-  function injectCalendarAttention() {
+  function calendarStatusForDate(key) {
+    const unfinished = (state.tasks || []).filter(t => !t.done && t.date === key);
+    if (!unfinished.length) return null;
+    const kind = classify(unfinished[0]);
+    if (!kind) return null;
+    return { kind, count: unfinished.length };
+  }
+
+  function decorateCalendarDays() {
     const view = document.querySelector('#calendarView');
     if (!view) return;
+
+    // Remove the old top-of-calendar attention panel if a cached render left one behind.
     view.querySelector('#calendarTaskAttentionSection')?.remove();
-    const groups = attentionData();
-    const items = attentionItems(groups);
-    const html = `<section id="calendarTaskAttentionSection" class="calendar-task-attention">
-      <div class="task-attention-head"><div><h2>Task Attention</h2><p>Overdue, due today, and tasks due within the next 3 days.</p></div></div>
-      ${summaryMarkup(groups)}
-      <div class="card"><div class="attention-list">${items.length ? items.map(([t,k]) => taskRow(t,k)).join('') : '<div class="attention-clear">No urgent calendar tasks right now.</div>'}</div></div>
-    </section>`;
-    const calendar = view.querySelector('.cal-shell');
-    if (calendar) calendar.insertAdjacentHTML('beforebegin', html); else view.insertAdjacentHTML('afterbegin', html);
-    bindRows(view.querySelector('#calendarTaskAttentionSection'));
+
+    view.querySelectorAll('.cal-day[data-cal-date]').forEach(cell => {
+      const key = cell.dataset.calDate;
+      const info = calendarStatusForDate(key);
+      cell.classList.remove('task-overdue','task-today','task-soon');
+      const oldChip = cell.querySelector('.cal-attention-chip');
+
+      if (!info) {
+        oldChip?.remove();
+        return;
+      }
+
+      cell.classList.add(`task-${info.kind}`);
+      const label = info.kind === 'overdue'
+        ? `${info.count} overdue`
+        : info.kind === 'today'
+          ? `${info.count} today`
+          : `${info.count} soon`;
+
+      if (oldChip) {
+        oldChip.className = `cal-attention-chip ${info.kind}`;
+        oldChip.textContent = label;
+      } else {
+        const chip = document.createElement('span');
+        chip.className = `cal-attention-chip ${info.kind}`;
+        chip.textContent = label;
+        cell.appendChild(chip);
+      }
+    });
   }
 
   function refreshAttention() {
     ensureStyles();
     injectDashboard();
     injectTodayOverdue();
-    injectCalendarAttention();
+    decorateCalendarDays();
   }
 
   ensureStyles();
@@ -196,5 +238,18 @@
       baseRender();
       refreshAttention();
     };
+  }
+
+  // Calendar month navigation redraws the grid directly, so decorate each fresh grid.
+  const calendarView = document.querySelector('#calendarView');
+  if (calendarView) {
+    let decorating = false;
+    const observer = new MutationObserver(() => {
+      if (decorating) return;
+      decorating = true;
+      try { decorateCalendarDays(); }
+      finally { decorating = false; }
+    });
+    observer.observe(calendarView, { childList:true, subtree:true });
   }
 })();
