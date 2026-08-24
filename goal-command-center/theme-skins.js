@@ -40,6 +40,37 @@
       html[data-skin] .scale-btn{background:var(--panel2);border-color:var(--line);color:var(--muted)}
       html[data-skin] .cal-pill{background:var(--panel2)}
       html[data-skin] .field-help::after{background:var(--panel2);color:var(--text);border-color:var(--line)}
+
+      html[data-skin="midnight"] .goal-card{
+        position:relative;
+        overflow:hidden;
+        border:1px solid color-mix(in srgb,var(--accent2) 30%,var(--line));
+        background:
+          radial-gradient(circle at 100% 0%,rgba(139,184,255,.14),transparent 34%),
+          radial-gradient(circle at 0% 100%,rgba(109,225,178,.08),transparent 40%),
+          linear-gradient(160deg,#132238 0%,#0e1a2b 55%,#0b1523 100%);
+        box-shadow:0 14px 34px rgba(0,0,0,.28),0 0 0 1px rgba(139,184,255,.04),inset 0 1px 0 rgba(255,255,255,.035);
+        transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+      }
+      html[data-skin="midnight"] .goal-card::before{
+        content:'';
+        position:absolute;
+        inset:0 auto 0 0;
+        width:3px;
+        background:linear-gradient(180deg,var(--accent2),var(--accent));
+        opacity:.9;
+      }
+      html[data-skin="midnight"] .goal-card:hover{
+        transform:translateY(-3px);
+        border-color:color-mix(in srgb,var(--accent2) 60%,var(--line));
+        box-shadow:0 20px 46px rgba(0,0,0,.38),0 0 22px rgba(139,184,255,.12),inset 0 1px 0 rgba(255,255,255,.05);
+      }
+      html[data-skin="midnight"] .goal-card .goal-title{color:#ffffff;text-shadow:0 1px 10px rgba(139,184,255,.08)}
+      html[data-skin="midnight"] .goal-card .goal-percent{color:var(--accent);font-weight:900}
+      html[data-skin="midnight"] .goal-card .progress{background:#08121f;border:1px solid rgba(139,184,255,.08)}
+      html[data-skin="midnight"] .goal-card .progress span{background:linear-gradient(90deg,var(--accent),var(--accent2));box-shadow:0 0 14px rgba(109,225,178,.25)}
+      html[data-skin="midnight"] .goal-card .badge{background:rgba(139,184,255,.08);border-color:rgba(139,184,255,.18)}
+
       html[data-skin="daylight"] .modal-root{background:rgba(35,47,60,.42)}
       html[data-skin="daylight"] .score-ring:after{background:var(--panel)}
       html[data-skin="daylight"] .primary-btn{color:#fff}
