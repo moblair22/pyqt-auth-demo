@@ -3,10 +3,6 @@
   const SKIN_KEY='gcc-skin-v1';
   const skins=[
     {id:'midnight',name:'Midnight',desc:'Deep navy with mint and blue accents.',swatches:['#07101d','#111d2e','#6de1b2','#8bb8ff']},
-    {id:'ocean',name:'Ocean',desc:'Cool marine blues with bright aqua accents.',swatches:['#04141d','#0a2630','#58e0d2','#63b7ff']},
-    {id:'forest',name:'Forest',desc:'Dark evergreen with sage and moss accents.',swatches:['#08150f','#14251b','#8ed081','#c0df85']},
-    {id:'ember',name:'Ember',desc:'Charcoal with warm amber and copper accents.',swatches:['#17100d','#2a1b15','#ffb35c','#ff7f66']},
-    {id:'royal',name:'Royal',desc:'Dark violet with lavender and electric blue.',swatches:['#110d1d','#21182f','#b99cff','#7ea7ff']},
     {id:'daylight',name:'Daylight',desc:'Clean light workspace with crisp blue accents.',swatches:['#eef3f8','#ffffff','#2b8a75','#3978d4']}
   ];
 
@@ -31,10 +27,6 @@
     style.id='skinStyles';
     style.textContent=`
       html[data-skin="midnight"]{--bg:#07101d;--panel:#0d1726;--panel2:#111d2e;--soft:#182638;--line:#203047;--text:#f5f8fb;--muted:#8ea0b7;--accent:#6de1b2;--accent2:#8bb8ff;--danger:#ff8b93;--skin-sidebar:#08111f;--skin-input:#07111f;--skin-modal:#0d1828;--skin-card:#111d2e}
-      html[data-skin="ocean"]{--bg:#04141d;--panel:#09202a;--panel2:#0a2630;--soft:#123746;--line:#1d4655;--text:#f0fbff;--muted:#8eb5c3;--accent:#58e0d2;--accent2:#63b7ff;--danger:#ff8794;--skin-sidebar:#061a24;--skin-input:#051923;--skin-modal:#08212c;--skin-card:#0a2630}
-      html[data-skin="forest"]{--bg:#08150f;--panel:#101f16;--panel2:#14251b;--soft:#203626;--line:#2d4835;--text:#f4f8f1;--muted:#9caf9c;--accent:#8ed081;--accent2:#c0df85;--danger:#f28c88;--skin-sidebar:#0b1911;--skin-input:#0a1810;--skin-modal:#102018;--skin-card:#14251b}
-      html[data-skin="ember"]{--bg:#17100d;--panel:#221712;--panel2:#2a1b15;--soft:#3c271e;--line:#55352a;--text:#fff7f1;--muted:#c0a397;--accent:#ffb35c;--accent2:#ff7f66;--danger:#ff777f;--skin-sidebar:#1c120f;--skin-input:#1a110e;--skin-modal:#251813;--skin-card:#2a1b15}
-      html[data-skin="royal"]{--bg:#110d1d;--panel:#1a1327;--panel2:#21182f;--soft:#322445;--line:#493664;--text:#faf7ff;--muted:#b0a1c4;--accent:#b99cff;--accent2:#7ea7ff;--danger:#ff8ba7;--skin-sidebar:#151022;--skin-input:#140f21;--skin-modal:#1c142a;--skin-card:#21182f}
       html[data-skin="daylight"]{--bg:#eef3f8;--panel:#ffffff;--panel2:#f7f9fc;--soft:#e7edf4;--line:#d5dee8;--text:#172231;--muted:#64758a;--accent:#2b8a75;--accent2:#3978d4;--danger:#cc4b5c;--skin-sidebar:#ffffff;--skin-input:#ffffff;--skin-modal:#ffffff;--skin-card:#ffffff;--shadow:0 12px 32px rgba(27,43,63,.10)}
 
       html[data-skin] body{background:radial-gradient(circle at 85% 0%,color-mix(in srgb,var(--accent2) 12%,transparent),transparent 32%),var(--bg);color:var(--text)}
@@ -55,7 +47,7 @@
       html[data-skin="daylight"] .brand-mark{color:#fff}
 
       .skin-settings-card{max-width:780px;margin-top:18px}
-      .skin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+      .skin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
       .skin-choice{appearance:none;text-align:left;border:1px solid var(--line);border-radius:15px;padding:13px;background:var(--panel2);color:var(--text);min-width:0;transition:border-color .15s ease,transform .15s ease,background .15s ease}
       .skin-choice:hover{border-color:var(--accent2);transform:translateY(-1px)}
       .skin-choice.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--soft)}
@@ -65,15 +57,14 @@
       .skin-name{font-size:14px;font-weight:850}.skin-selected{font-size:10px;color:var(--accent);font-weight:850;text-transform:uppercase;letter-spacing:.07em}
       .skin-desc{font-size:11px;color:var(--muted);line-height:1.35;margin-top:5px}
       .skin-note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.45}
-      @media(max-width:720px){.skin-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-      @media(max-width:420px){.skin-grid{grid-template-columns:1fr}}
+      @media(max-width:520px){.skin-grid{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
 
   function settingsMarkup(){
     const current=readSkin();
-    return `<div class="card settings-card skin-settings-card" id="skinSettingsCard"><div class="kicker">Appearance</div><h2>App Skin</h2><p>Choose the look and feel of Goal Command Center.</p><div class="skin-grid">${skins.map(s=>`<button type="button" class="skin-choice ${s.id===current?'active':''}" data-skin-choice="${s.id}" aria-pressed="${s.id===current?'true':'false'}"><span class="skin-preview">${s.swatches.map(c=>`<i style="background:${c}"></i>`).join('')}</span><span class="skin-name-row"><span class="skin-name">${s.name}</span><span class="skin-selected">${s.id===current?'Selected':''}</span></span><span class="skin-desc">${s.desc}</span></button>`).join('')}</div><div class="skin-note">Your skin is an appearance preference only. It does not change or overwrite your goals, tasks, calendar, or cloud data.</div></div>`;
+    return `<div class="card settings-card skin-settings-card" id="skinSettingsCard"><div class="kicker">Appearance</div><h2>App Skin</h2><p>Choose between the dark Midnight workspace and the light Daylight workspace.</p><div class="skin-grid">${skins.map(s=>`<button type="button" class="skin-choice ${s.id===current?'active':''}" data-skin-choice="${s.id}" aria-pressed="${s.id===current?'true':'false'}"><span class="skin-preview">${s.swatches.map(c=>`<i style="background:${c}"></i>`).join('')}</span><span class="skin-name-row"><span class="skin-name">${s.name}</span><span class="skin-selected">${s.id===current?'Selected':''}</span></span><span class="skin-desc">${s.desc}</span></button>`).join('')}</div><div class="skin-note">Your skin is an appearance preference only. It does not change or overwrite your goals, tasks, calendar, or cloud data.</div></div>`;
   }
 
   function ensureSkinSettings(){
