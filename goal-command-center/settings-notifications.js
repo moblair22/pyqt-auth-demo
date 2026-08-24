@@ -8,6 +8,7 @@
     const style=document.createElement('style');
     style.id='settingsNotificationsStyles';
     style.textContent=`
+      .nav [data-view="notifications"]{display:none!important}
       #settingsView .settings-notifications-wrap{margin-top:18px}
       #settingsView #notificationsView{display:block!important;margin:0;padding:0}
       #settingsView #notificationsView>.email-shell{margin-top:0}
@@ -22,7 +23,9 @@
     const settingsView=document.querySelector('#settingsView');
     if(!settingsView||!notificationView)return;
 
-    if(notificationNav)notificationNav.remove();
+    // Keep the original nav element in the DOM so email-reminders.js can initialize,
+    // but hide it from the sidebar with CSS.
+    if(notificationNav)notificationNav.setAttribute('aria-hidden','true');
 
     let wrap=settingsView.querySelector('.settings-notifications-wrap');
     if(!wrap){
