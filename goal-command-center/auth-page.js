@@ -6,7 +6,7 @@
   document.head.appendChild(style);
   const gate=document.createElement('div');
   gate.id='authGate';gate.className='auth-gate hidden';
-  gate.innerHTML=`<div class="auth-panel"><div class="auth-brand"><div class="brand-mark">G</div><div><strong>Goal Command</strong><div class="task-sub">Center</div></div></div><h1>Welcome back</h1><p>Sign in to access and sync your goals across your devices.</p><div class="field"><label>Email</label><input id="gateEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="field"><label>Password</label><input id="gatePassword" type="password" autocomplete="current-password" placeholder="At least 6 characters"></div><div id="gateError" class="auth-error"></div><div class="top-actions"><button id="gateSignIn" class="primary-btn">Sign In</button><button id="gateSignUp" class="secondary-btn">Create Account</button></div><button id="gateForgot" class="link-btn" style="margin-top:16px">Forgot password?</button></div>`;
+  gate.innerHTML=`<div class="auth-panel"><div class="auth-brand"><div class="brand-mark">G</div><div><strong>Goal Command</strong><div class="task-sub">Center</div></div></div><h1>Welcome back</h1><p>Sign in to access and sync your goals across your devices.</p><div class="field"><label>Email</label><input id="gateEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="field"><label>Password</label><input id="gatePassword" type="password" autocomplete="current-password" placeholder="At least 6 characters"></div><label style="display:flex;align-items:center;gap:9px;margin:4px 0 12px"><input id="gateRemember" type="checkbox" checked style="width:18px;height:18px"><span>Remember me on this device</span></label><div id="gateError" class="auth-error"></div><div class="top-actions"><button id="gateSignIn" class="primary-btn">Sign In</button><button id="gateSignUp" class="secondary-btn">Create Account</button></div><button id="gateForgot" class="link-btn" style="margin-top:16px">Forgot password?</button></div>`;
   document.body.appendChild(gate);
   const errorEl=gate.querySelector('#gateError');
   const credentials=()=>({email:gate.querySelector('#gateEmail').value.trim(),password:gate.querySelector('#gatePassword').value});
@@ -15,6 +15,9 @@
     const {email,password}=credentials();
     if(!email||password.length<6){errorEl.textContent='Enter an email and a password of at least 6 characters.';return}
     busy(true);errorEl.textContent='';
+    const remember=gate.querySelector('#gateRemember').checked;
+    localStorage.setItem('gcc-remember-login',remember?'1':'0');
+    if(remember)sessionStorage.removeItem('gcc-session-login');else sessionStorage.setItem('gcc-session-login','1');
     const result=mode==='in'?await cloud.auth.signInWithPassword({email,password}):await cloud.auth.signUp({email,password,options:{emailRedirectTo:location.href.split('#')[0]}});
     busy(false);
     if(result.error){errorEl.textContent=result.error.message;return}
@@ -56,6 +59,11 @@
     };
   }
   function apply(session){const user=session?.user||null;gate.classList.toggle('hidden',!!user);accountControl(user)}
-  cloud.auth.getSession().then(({data})=>apply(data?.session));
+  cloud.auth.getSession().then(async({data})=>{
+    const remembered=localStorage.getItem('gcc-remember-login')!=='0';
+    const sessionOnly=sessionStorage.getItem('gcc-session-login')==='1';
+    if(data?.session&&!remembered&&!sessionOnly){await cloud.auth.signOut();apply(null);return}
+    apply(data?.session);
+  });
   cloud.auth.onAuthStateChange((event,session)=>setTimeout(()=>{apply(session);if(event==='PASSWORD_RECOVERY')showRecovery()},0));
 })();
